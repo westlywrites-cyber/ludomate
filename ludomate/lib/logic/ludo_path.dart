@@ -34,6 +34,11 @@ class LudoPath {
     GridPos(7, 3), GridPos(7, 4), GridPos(7, 5),
   ];
 
+  // Green's yard: 4 token slots inside its 6x6 block (2x2 arrangement).
+  static const List<GridPos> _yardQuarterSlots = [
+    GridPos(1, 1), GridPos(1, 3), GridPos(3, 1), GridPos(3, 3),
+  ];
+
   static GridPos _rotate90(GridPos p) => GridPos(p.col, 14 - p.row);
   static GridPos _rotate180(GridPos p) => GridPos(14 - p.row, 14 - p.col);
   static GridPos _rotate270(GridPos p) => GridPos(14 - p.col, p.row);
@@ -53,6 +58,17 @@ class LudoPath {
     PlayerColor.blue: _homeQuarter.map(_rotate180).toList(),
     PlayerColor.red: _homeQuarter.map(_rotate270).toList(),
   };
+
+  /// Each color's 4 yard token-rest positions (used while steps == 0).
+  static final Map<PlayerColor, List<GridPos>> yardSlots = {
+    PlayerColor.green: _yardQuarterSlots,
+    PlayerColor.yellow: _yardQuarterSlots.map(_rotate90).toList(),
+    PlayerColor.blue: _yardQuarterSlots.map(_rotate180).toList(),
+    PlayerColor.red: _yardQuarterSlots.map(_rotate270).toList(),
+  };
+
+  static GridPos yardSlot(PlayerColor color, int id) =>
+      yardSlots[color]![id];
 
   /// Each color's fixed starting coordinate (where a piece lands when it
   /// exits the yard on a roll of 6).
@@ -80,10 +96,10 @@ class LudoPath {
   static final Set<GridPos> safeCells = startCell.values.toSet();
 
   /// Resolves a piece's grid position from its progress counter.
-  /// [steps]: 0 = still in yard, 1-51 = on shared track, 52-57 = home
-  /// stretch (57 = finished / sitting in the final home cell).
+  /// [steps]: 0 = still in yard (use [yardSlot] instead), 1-51 = on
+  /// shared track, 52-57 = home stretch (57 = finished).
   static GridPos? positionFor(PlayerColor color, int steps) {
-    if (steps <= 0) return null; // still in yard — rendered separately
+    if (steps <= 0) return null; // still in yard — use yardSlot()
     if (steps <= trackLength - 1) {
       final globalIndex = (startOffset(color) + steps - 1) % trackLength;
       return sharedTrack[globalIndex];

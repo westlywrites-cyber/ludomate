@@ -1,12 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/game_state.dart';
+import '../models/piece.dart';
+import '../models/player_color.dart';
+import '../providers/game_providers.dart';
 import '../theme/app_colors.dart';
 import '../widgets/ludo_board.dart';
 
-class BoardScreen extends StatelessWidget {
+class BoardScreen extends ConsumerWidget {
   const BoardScreen({super.key});
 
+  Color _colorOf(PlayerColor c) {
+    switch (c) {
+      case PlayerColor.green:
+        return AppColors.zoneGreen;
+      case PlayerColor.yellow:
+        return AppColors.zoneYellow;
+      case PlayerColor.blue:
+        return AppColors.zoneBlue;
+      case PlayerColor.red:
+        return AppColors.zoneRed;
+    }
+  }
+
+  String _nameOf(PlayerColor c) {
+    final s = c.name;
+    return s[0].toUpperCase() + s.substring(1);
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(gameProvider);
+    final notifier = ref.read(gameProvider.notifier);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -20,14 +46,17 @@ class BoardScreen extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: AspectRatio(
                     aspectRatio: 1,
-                    child: const LudoBoard(),
+                    child: LudoBoard(
+                      gameState: state,
+                      onDiceTap: notifier.rollDice,
+                      onPieceTap: (Piece p) => notifier.selectPiece(p),
+                    ),
                   ),
                 ),
               ),
             ),
-            _scoreRow(),
             const SizedBox(height: 12),
-            _turnBanner(),
+            _turnBanner(state),
             const SizedBox(height: 16),
           ],
         ),
@@ -81,58 +110,39 @@ class BoardScreen extends StatelessWidget {
     );
   }
 
-  Widget _scoreRow() {
-    Widget chip(Color color) {
-      return Container(
-        width: 44,
-        height: 44,
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 2),
-          boxShadow: const [
-            BoxShadow(color: Colors.black26, blurRadius: 2, offset: Offset(0, 1)),
-          ],
-        ),
-        alignment: Alignment.center,
-        child: const Text(
-          '0',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w800,
-            fontSize: 16,
-          ),
-        ),
-      );
+  Widget _turnBanner(GameState state) {
+    if (state.winners.isNotEmpty) {
+      final winnerNames = state.winners.map(_nameOf).join(', ');
+      return _banner('$winnerNames finished!', AppColors.success);
     }
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        chip(AppColors.zoneBlue),
-        chip(AppColors.zoneRed),
-        chip(AppColors.zoneGreen),
-      ],
-    );
+    final color = _colorOf(state.currentTurn);
+    final name = _nameOf(state.currentTurn);
+    final label = state.phase == TurnPhase.awaitingRoll
+        ? "$name's Turn — tap the dice"
+        : "$name's Turn — tap a glowing piece";
+
+    return _banner(label, color);
   }
 
-  Widget _turnBanner() {
+  Widget _banner(String text, Color color) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24),
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
       width: double.infinity,
       decoration: BoxDecoration(
         color: AppColors.darkNavy,
         borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: color, width: 2),
       ),
       alignment: Alignment.center,
-      child: const Text(
-        'Your Turn',
-        style: TextStyle(
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.w800,
-          fontSize: 18,
+          fontSize: 16,
         ),
       ),
     );
