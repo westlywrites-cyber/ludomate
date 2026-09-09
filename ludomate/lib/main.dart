@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'theme/app_theme.dart';
 import 'screens/home_screen.dart';
 
 void main() {
-  runApp(const LudoMateApp());
+  runApp(const ProviderScope(child: LudoMateApp()));
 }
 
 class LudoMateApp extends StatelessWidget {
