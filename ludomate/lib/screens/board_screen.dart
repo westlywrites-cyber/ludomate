@@ -6,6 +6,7 @@ import '../models/player_color.dart';
 import '../providers/game_providers.dart';
 import '../theme/app_colors.dart';
 import '../widgets/ludo_board.dart';
+import '../widgets/wood_backdrop.dart';
 
 class BoardScreen extends ConsumerWidget {
   const BoardScreen({super.key});
@@ -33,6 +34,19 @@ class BoardScreen extends ConsumerWidget {
     final state = ref.watch(gameProvider);
     final notifier = ref.read(gameProvider.notifier);
 
+    // When a turn gets auto-passed (no usable move, or three doubles),
+    // show a brief explanation, then clear it after a beat. This is a
+    // fire-once side effect, not something to compute during build.
+    ref.listen<GameState>(gameProvider, (previous, next) {
+      final justStartedShowing = next.justPassedColor != null &&
+          previous?.justPassedColor != next.justPassedColor;
+      if (justStartedShowing) {
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          ref.read(gameProvider.notifier).dismissPassNotice();
+        });
+      }
+    });
+
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -50,24 +64,69 @@ class BoardScreen extends ConsumerWidget {
               _topBar(context),
               const SizedBox(height: 8),
               Expanded(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: AspectRatio(
-                      aspectRatio: 1,
-                      child: LudoBoard(
-                        gameState: state,
-                        onDiceTap: notifier.rollDice,
-                        onPieceTap: (Piece p) => notifier.selectPiece(p),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    WoodBackdrop(
+                      padding: 16,
+                      child: AspectRatio(
+                        aspectRatio: 1,
+                        child: LudoBoard(
+                          gameState: state,
+                          onDiceTap: notifier.rollDice,
+                          onPieceTap: (Piece p) => notifier.selectPiece(p),
+                        ),
                       ),
                     ),
-                  ),
+                    if (state.justPassedColor != null)
+                      _passToast(state.justPassedColor!, state.passReason!),
+                  ],
                 ),
               ),
               const SizedBox(height: 12),
               _turnBanner(state),
               const SizedBox(height: 16),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _passToast(PlayerColor color, PassReason reason) {
+    final name = _nameOf(color);
+    final message = reason == PassReason.threeDoubles
+        ? '$name rolled 3 doubles in a row — turn forfeited!'
+        : "$name had no usable move — turn passes";
+
+    return TweenAnimationBuilder<double>(
+      key: ValueKey('$color-$reason'),
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      builder: (context, t, child) {
+        return Opacity(
+          opacity: t,
+          child: Transform.scale(scale: 0.9 + (t * 0.1), child: child),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 32),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+        decoration: BoxDecoration(
+          color: AppColors.toastBg,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: const [
+            BoxShadow(color: Colors.black45, blurRadius: 10, offset: Offset(0, 4)),
+          ],
+        ),
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 15,
           ),
         ),
       ),

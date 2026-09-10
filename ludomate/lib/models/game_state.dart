@@ -6,6 +6,10 @@ enum TurnPhase {
   awaitingSelection, // rolled — waiting for them to pick a movable piece
 }
 
+/// Why a turn was auto-passed without the player getting to move, so the UI
+/// can show an appropriate one-off message before returning to normal play.
+enum PassReason { noUsableMove, threeDoubles }
+
 class GameState {
   const GameState({
     required this.pieces,
@@ -15,6 +19,8 @@ class GameState {
     this.consecutiveDoubles = 0,
     this.phase = TurnPhase.awaitingRoll,
     this.winners = const [],
+    this.justPassedColor,
+    this.passReason,
   });
 
   final List<Piece> pieces; // all 16 pieces, 4 per color
@@ -32,6 +38,13 @@ class GameState {
   final int consecutiveDoubles;
   final TurnPhase phase;
   final List<PlayerColor> winners; // colors that finished, in order
+
+  /// Set for exactly one state update when a turn was auto-passed without
+  /// any move happening (no usable die, or three doubles in a row). The UI
+  /// shows a brief explanation, then calls [GameNotifier.dismissPassNotice]
+  /// to clear it. Null the rest of the time.
+  final PlayerColor? justPassedColor;
+  final PassReason? passReason;
 
   factory GameState.initial() {
     return GameState(
@@ -54,6 +67,11 @@ class GameState {
         .toList();
   }
 
+  /// True once all 4 of this color's pieces have reached home. Used to skip
+  /// them when rotating turns so a finished player never gets asked to roll.
+  bool isColorFinished(PlayerColor color) =>
+      piecesOf(color).every((p) => p.isFinished);
+
   GameState copyWith({
     List<Piece>? pieces,
     PlayerColor? currentTurn,
@@ -63,6 +81,9 @@ class GameState {
     int? consecutiveDoubles,
     TurnPhase? phase,
     List<PlayerColor>? winners,
+    PlayerColor? justPassedColor,
+    PassReason? passReason,
+    bool clearPassNotice = false,
   }) {
     return GameState(
       pieces: pieces ?? this.pieces,
@@ -73,6 +94,9 @@ class GameState {
       consecutiveDoubles: consecutiveDoubles ?? this.consecutiveDoubles,
       phase: phase ?? this.phase,
       winners: winners ?? this.winners,
+      justPassedColor:
+          clearPassNotice ? null : (justPassedColor ?? this.justPassedColor),
+      passReason: clearPassNotice ? null : (passReason ?? this.passReason),
     );
   }
 }

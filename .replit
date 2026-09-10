@@ -5,4 +5,4 @@ channel = "stable-24_05"
 packages = []
 
 [env]
-PATH = "/home/runner/dev/flutter/bin:${PATH}"
+PATH = "/home/runner/workspace/.flutter-sdk/flutter/bin:${PATH}"

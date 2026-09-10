@@ -42,31 +42,56 @@ class LudoBoard extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final double boardSize = constraints.maxWidth;
+        final double outerSize = constraints.maxWidth;
+        final double framePad = outerSize * 0.012;
+        // The playable board is smaller than the outer frame by the border
+        // padding on each side — every downstream measurement (grid cells,
+        // piece positions, the painter's own size) must use THIS size, or
+        // pieces drift out of alignment with the drawn cells.
+        final double boardSize = outerSize - framePad * 2;
         final double cell = boardSize / _grid;
         final movable = gameState.movablePieces.toSet();
 
-        return SizedBox(
-          width: boardSize,
-          height: boardSize,
-          child: Stack(
-            children: [
-              CustomPaint(
-                size: Size(boardSize, boardSize),
-                painter: const LudoBoardPainter(),
-              ),
-              for (final piece in gameState.pieces)
-                _pieceMarker(piece, cell, movable.contains(piece)),
-              Align(
-                alignment: Alignment.center,
-                child: DiceTray(
-                  size: boardSize * 0.3,
-                  diceValues: gameState.diceValues,
-                  remainingDice: gameState.remainingDice,
-                  onTap: onDiceTap,
-                ),
+        return Container(
+          width: outerSize,
+          height: outerSize,
+          padding: EdgeInsets.all(framePad),
+          decoration: BoxDecoration(
+            color: AppColors.boardFrame,
+            borderRadius: BorderRadius.circular(outerSize * 0.03),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.45),
+                blurRadius: outerSize * 0.04,
+                offset: Offset(0, outerSize * 0.015),
               ),
             ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(outerSize * 0.02),
+            child: SizedBox(
+              width: boardSize,
+              height: boardSize,
+              child: Stack(
+                children: [
+                  CustomPaint(
+                    size: Size(boardSize, boardSize),
+                    painter: const LudoBoardPainter(),
+                  ),
+                  for (final piece in gameState.pieces)
+                    _pieceMarker(piece, cell, movable.contains(piece)),
+                  Align(
+                    alignment: Alignment.center,
+                    child: DiceTray(
+                      size: boardSize * 0.3,
+                      diceValues: gameState.diceValues,
+                      remainingDice: gameState.remainingDice,
+                      onTap: onDiceTap,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         );
       },
@@ -102,7 +127,7 @@ class LudoBoard extends StatelessWidget {
             boxShadow: isMovable
                 ? [
                     BoxShadow(
-                      color: color.withOpacity(0.7),
+                      color: color.withValues(alpha: 0.7),
                       blurRadius: size * 0.3,
                       spreadRadius: size * 0.05,
                     ),

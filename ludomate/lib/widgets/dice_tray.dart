@@ -14,9 +14,9 @@ const Map<int, Set<int>> _pipLayout = {
   6: {0, 2, 3, 5, 6, 8},
 };
 
-/// A real dice tray: two pip-faced dice that sit small and centered inside
-/// a dark box at rest, and pop up larger with a quick shuffling animation
-/// while rolling before settling on the final values.
+/// A real dice tray: two chunky pip-faced dice that sit snug in a recessed
+/// well at rest, and visibly tumble — rotating and jostling — while rolling
+/// before bouncing to a settled stop on the final values.
 class DiceTray extends StatefulWidget {
   const DiceTray({
     super.key,
@@ -37,9 +37,10 @@ class DiceTray extends StatefulWidget {
 
 class _DiceTrayState extends State<DiceTray>
     with SingleTickerProviderStateMixin {
+  // Drives the overall "pop up out of the tray" lift/scale while rolling.
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 600),
+    duration: const Duration(milliseconds: 620),
   );
   late final Animation<double> _pop = Tween<double>(begin: 0, end: 1)
       .chain(CurveTween(curve: Curves.elasticOut))
@@ -47,6 +48,13 @@ class _DiceTrayState extends State<DiceTray>
 
   final Random _rand = Random();
   List<int> _display = const [1, 1];
+
+  // Per-die tumble state: a little independent rotation + jitter so the two
+  // dice don't move as a single rigid block, like real thrown dice.
+  List<double> _angle = const [0, 0];
+  List<Offset> _jitter = const [Offset.zero, Offset.zero];
+  bool _settling = false;
+
   Timer? _shuffle;
 
   @override
@@ -60,16 +68,43 @@ class _DiceTrayState extends State<DiceTray>
   void _playRoll(List<int> finalValues) {
     _shuffle?.cancel();
     _controller.forward(from: 0);
+    setState(() => _settling = false);
+
     var ticks = 0;
+    const totalTicks = 9;
     _shuffle = Timer.periodic(const Duration(milliseconds: 65), (t) {
       ticks++;
-      if (ticks >= 8) {
+      if (ticks >= totalTicks) {
         t.cancel();
-        setState(() => _display = finalValues);
+        setState(() {
+          _display = finalValues;
+          _angle = const [0, 0];
+          _jitter = const [Offset.zero, Offset.zero];
+          _settling = true; // next change eases in, instead of snapping
+        });
         return;
       }
       setState(() {
+        _settling = false;
         _display = [_rand.nextInt(6) + 1, _rand.nextInt(6) + 1];
+        // Wide random tumble early on, narrowing as the roll settles down.
+        final progress = ticks / totalTicks;
+        final wobble = (1 - progress) * 0.9 + 0.15;
+        _angle = [
+          (_rand.nextDouble() * 2 - 1) * wobble,
+          (_rand.nextDouble() * 2 - 1) * wobble,
+        ];
+        final maxShift = widget.size * 0.05 * wobble;
+        _jitter = [
+          Offset(
+            (_rand.nextDouble() * 2 - 1) * maxShift,
+            (_rand.nextDouble() * 2 - 1) * maxShift,
+          ),
+          Offset(
+            (_rand.nextDouble() * 2 - 1) * maxShift,
+            (_rand.nextDouble() * 2 - 1) * maxShift,
+          ),
+        ];
       });
     });
   }
@@ -84,6 +119,7 @@ class _DiceTrayState extends State<DiceTray>
   @override
   Widget build(BuildContext context) {
     final values = widget.diceValues ?? _display;
+    final isRolling = _shuffle?.isActive ?? false;
 
     // Which displayed die (left-to-right) is still usable this turn —
     // handles duplicate values correctly, one box at a time.
@@ -102,73 +138,190 @@ class _DiceTrayState extends State<DiceTray>
       }
     }
 
+    final trayHeight = widget.size * 0.66;
+    final wellInset = widget.size * 0.05;
+
     return GestureDetector(
       onTap: widget.onTap,
-      child: Container(
+      child: SizedBox(
         width: widget.size,
-        height: widget.size * 0.62,
-        decoration: BoxDecoration(
-          color: AppColors.darkNavy,
-          borderRadius: BorderRadius.circular(widget.size * 0.16),
-          boxShadow: const [
-            BoxShadow(color: Colors.black45, blurRadius: 6, offset: Offset(0, 3)),
+        height: trayHeight,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Outer tray shell.
+            Container(
+              width: widget.size,
+              height: trayHeight,
+              decoration: BoxDecoration(
+                color: AppColors.trayShell,
+                borderRadius: BorderRadius.circular(widget.size * 0.18),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black45,
+                    blurRadius: 8,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+            ),
+            // Recessed inner well, so the dice read as sitting *in* the
+            // tray rather than floating on top of a flat card.
+            Positioned(
+              left: wellInset,
+              right: wellInset,
+              top: wellInset,
+              bottom: wellInset,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.trayWell,
+                  borderRadius: BorderRadius.circular(widget.size * 0.14),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black38,
+                      blurRadius: 4,
+                      spreadRadius: -1,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            AnimatedBuilder(
+              animation: _pop,
+              builder: (context, child) {
+                // At rest: a touch smaller (0.82x), sitting flat and low
+                // in the well. Mid-roll: pops up bigger (1.0x) and lifts,
+                // then settles back down with a bounce.
+                final scale = 0.82 + (_pop.value * 0.18);
+                final lift = sin(_pop.value * pi) * widget.size * 0.1;
+                return Transform.translate(
+                  offset: Offset(0, -lift),
+                  child: Transform.scale(scale: scale, child: child),
+                );
+              },
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _tumblingDie(values[0], active[0], _angle[0], _jitter[0]),
+                  SizedBox(width: widget.size * 0.035),
+                  _tumblingDie(values[1], active[1], _angle[1], _jitter[1]),
+                ],
+              ),
+            ),
+            if (!isRolling && widget.diceValues == null)
+              IgnorePointer(
+                child: _IdlePulse(size: widget.size),
+              ),
           ],
         ),
-        alignment: Alignment.center,
-        child: AnimatedBuilder(
-          animation: _pop,
-          builder: (context, child) {
-            // At rest: small (0.55x). Mid-roll: pops up larger (1.0x) and
-            // lifts slightly, then settles back down — "comes out of the
-            // box only while rolling".
-            final scale = 0.55 + (_pop.value * 0.45);
-            final lift = sin(_pop.value * pi) * widget.size * 0.14;
-            return Transform.translate(
-              offset: Offset(0, -lift),
-              child: Transform.scale(scale: scale, child: child),
-            );
-          },
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _die(values[0], active[0]),
-              SizedBox(width: widget.size * 0.06),
-              _die(values[1], active[1]),
-            ],
-          ),
+      ),
+    );
+  }
+
+  Widget _tumblingDie(int value, bool active, double angle, Offset jitter) {
+    // AnimatedSlide's offset is a fraction of the die's OWN size, not the
+    // tray's — dividing by the die's edge length (not widget.size) is what
+    // makes the jitter magnitude computed in _playRoll actually visible.
+    final double dieEdge = widget.size * 0.42;
+    return AnimatedRotation(
+      turns: angle / (2 * pi),
+      duration: Duration(milliseconds: _settling ? 260 : 65),
+      curve: _settling ? Curves.easeOutBack : Curves.linear,
+      child: AnimatedSlide(
+        offset: Offset(
+          jitter.dx / dieEdge,
+          jitter.dy / dieEdge,
         ),
+        duration: Duration(milliseconds: _settling ? 260 : 65),
+        curve: _settling ? Curves.easeOutBack : Curves.linear,
+        child: _die(value, active),
       ),
     );
   }
 
   Widget _die(int value, bool active) {
-    final double s = widget.size * 0.36;
+    final double s = widget.size * 0.42;
     return Container(
       width: s,
       height: s,
       decoration: BoxDecoration(
-        color: active ? Colors.white : Colors.white.withOpacity(0.4),
-        borderRadius: BorderRadius.circular(s * 0.2),
-        boxShadow: active
-            ? [
-                BoxShadow(
-                  color: AppColors.secondary.withOpacity(0.7),
-                  blurRadius: s * 0.25,
-                  spreadRadius: s * 0.03,
-                ),
-              ]
-            : null,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: active
+              ? [AppColors.diceRed, AppColors.diceRedDark]
+              : [
+                  AppColors.diceRed.withValues(alpha: 0.35),
+                  AppColors.diceRedDark.withValues(alpha: 0.35),
+                ],
+        ),
+        borderRadius: BorderRadius.circular(s * 0.24),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: active ? 0.85 : 0.3),
+          width: s * 0.045,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: active ? 0.35 : 0.15),
+            blurRadius: s * 0.18,
+            offset: Offset(0, s * 0.08),
+          ),
+        ],
       ),
-      padding: EdgeInsets.all(s * 0.14),
-      child: _PipFace(value: value, dim: !active),
+      padding: EdgeInsets.all(s * 0.15),
+      child: _PipFace(value: value),
+    );
+  }
+}
+
+/// A subtle, slow breathing glow on the tray while it's waiting to be
+/// tapped, so an idle board doesn't look inert.
+class _IdlePulse extends StatefulWidget {
+  const _IdlePulse({required this.size});
+  final double size;
+
+  @override
+  State<_IdlePulse> createState() => _IdlePulseState();
+}
+
+class _IdlePulseState extends State<_IdlePulse>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final t = Curves.easeInOut.transform(_c.value);
+        return Container(
+          width: widget.size,
+          height: widget.size * 0.66,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(widget.size * 0.18),
+            border: Border.all(
+              color: AppColors.secondary.withValues(alpha: 0.15 + t * 0.25),
+              width: 2,
+            ),
+          ),
+        );
+      },
     );
   }
 }
 
 class _PipFace extends StatelessWidget {
-  const _PipFace({required this.value, required this.dim});
+  const _PipFace({required this.value});
   final int value;
-  final bool dim;
 
   @override
   Widget build(BuildContext context) {
@@ -180,7 +333,7 @@ class _PipFace extends StatelessWidget {
         for (var i = 0; i < 9; i++)
           Center(
             child: filled.contains(i)
-                ? _Pip(dim: dim)
+                ? const _Pip()
                 : const SizedBox.shrink(),
           ),
       ],
@@ -189,18 +342,24 @@ class _PipFace extends StatelessWidget {
 }
 
 class _Pip extends StatelessWidget {
-  const _Pip({required this.dim});
-  final bool dim;
+  const _Pip();
 
   @override
   Widget build(BuildContext context) {
     return FractionallySizedBox(
-      widthFactor: 0.7,
-      heightFactor: 0.7,
+      widthFactor: 0.72,
+      heightFactor: 0.72,
       child: DecoratedBox(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: dim ? AppColors.textDark.withOpacity(0.4) : AppColors.textDark,
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 1,
+              offset: const Offset(0, 0.5),
+            ),
+          ],
         ),
       ),
     );

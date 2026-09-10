@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'package:flutter_riverpod/legacy.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../logic/ludo_path.dart';
 import '../models/game_state.dart';
 import '../models/piece.dart';
@@ -29,7 +28,7 @@ class GameNotifier extends StateNotifier<GameState> {
 
     if (isThirdDouble) {
       // Three doubles in a row: roll is voided, turn passes immediately.
-      _advanceTurn();
+      _advanceTurn(reason: PassReason.threeDoubles);
       return;
     }
 
@@ -42,12 +41,20 @@ class GameNotifier extends StateNotifier<GameState> {
 
     if (withRoll.movablePieces.isEmpty) {
       // Neither die can be used at all — pass the turn. (No bonus roll
-      // here even on a double, since nothing was actually played.)
-      _advanceTurn();
+      // here even on a double, since nothing was actually played.) We
+      // advance from `withRoll` (not `state`) so the dice still briefly
+      // show the rolled values behind the "no move" notice.
+      _advanceTurnFrom(withRoll, reason: PassReason.noUsableMove);
       return;
     }
 
     state = withRoll;
+  }
+
+  /// Clears the one-off "turn passed" notice once the UI has shown it.
+  void dismissPassNotice() {
+    if (state.justPassedColor == null) return;
+    state = state.copyWith(clearPassNotice: true);
   }
 
   /// Moves the given piece using whichever remaining die makes the move
@@ -121,19 +128,30 @@ class GameNotifier extends StateNotifier<GameState> {
     _advanceTurnFrom(afterMove);
   }
 
-  void _advanceTurn() => _advanceTurnFrom(state);
+  void _advanceTurn({PassReason? reason}) =>
+      _advanceTurnFrom(state, reason: reason);
 
   /// Passes play to the next color, always resetting the double-streak
-  /// counter (only relevant to whoever is currently rolling).
-  void _advanceTurnFrom(GameState base) {
+  /// counter (only relevant to whoever is currently rolling). Skips any
+  /// color that has already finished all 4 pieces — a finished player
+  /// should never be asked to roll, and (now that passed turns show a
+  /// notice) never has one silently "pass" for them every cycle either.
+  void _advanceTurnFrom(GameState base, {PassReason? reason}) {
     final order = PlayerColor.values;
-    final currentIndex = order.indexOf(base.currentTurn);
-    final next = order[(currentIndex + 1) % order.length];
+    var nextIndex = order.indexOf(base.currentTurn);
+    for (var i = 0; i < order.length; i++) {
+      nextIndex = (nextIndex + 1) % order.length;
+      if (!base.isColorFinished(order[nextIndex])) break;
+    }
+    final next = order[nextIndex];
     state = base.copyWith(
       currentTurn: next,
       clearDice: true,
       consecutiveDoubles: 0,
       phase: TurnPhase.awaitingRoll,
+      justPassedColor: reason != null ? base.currentTurn : null,
+      passReason: reason,
+      clearPassNotice: reason == null,
     );
   }
 }

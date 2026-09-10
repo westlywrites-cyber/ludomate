@@ -39,13 +39,20 @@ class LudoBoardPainter extends CustomPainter {
 
     // Grid lines across the path/cross area only (not the solid corners).
     final Paint gridPaint = Paint()
-      ..color = Colors.black.withOpacity(0.35)
+      ..color = Colors.black.withValues(alpha: 0.35)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     _strokeGrid(canvas, cell, 0, 6, 6, 3, gridPaint); // top arm
     _strokeGrid(canvas, cell, 9, 6, 6, 3, gridPaint); // bottom arm
     _strokeGrid(canvas, cell, 6, 0, 3, 6, gridPaint); // left arm
     _strokeGrid(canvas, cell, 6, 9, 3, 6, gridPaint); // right arm
+
+    // Small direction arrows on the entry cell of each arm, echoing the
+    // reference board's "which way to walk" hints.
+    _directionArrow(canvas, cell, 1, 6, Alignment.topCenter, AppColors.textDark);
+    _directionArrow(canvas, cell, 13, 8, Alignment.bottomCenter, AppColors.textDark);
+    _directionArrow(canvas, cell, 6, 13, Alignment.centerRight, AppColors.textDark);
+    _directionArrow(canvas, cell, 8, 1, Alignment.centerLeft, AppColors.textDark);
 
     // Outer border.
     canvas.drawRect(
@@ -55,6 +62,31 @@ class LudoBoardPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2,
     );
+  }
+
+  void _directionArrow(
+    Canvas canvas,
+    double cell,
+    int row,
+    int col,
+    Alignment pointing,
+    Color color,
+  ) {
+    final center = Offset((col + 0.5) * cell, (row + 0.5) * cell);
+    final double r = cell * 0.28;
+    final Offset tip = center + Offset(pointing.x * r, pointing.y * r);
+    final Offset baseA = center +
+        Offset(-pointing.y * r * 0.6, pointing.x * r * 0.6) -
+        Offset(pointing.x * r * 0.4, pointing.y * r * 0.4);
+    final Offset baseB = center +
+        Offset(pointing.y * r * 0.6, -pointing.x * r * 0.6) -
+        Offset(pointing.x * r * 0.4, pointing.y * r * 0.4);
+    final path = Path()
+      ..moveTo(tip.dx, tip.dy)
+      ..lineTo(baseA.dx, baseA.dy)
+      ..lineTo(baseB.dx, baseB.dy)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color.withValues(alpha: 0.55));
   }
 
   void _fillBlock(
