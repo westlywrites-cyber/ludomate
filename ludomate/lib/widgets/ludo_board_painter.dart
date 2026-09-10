@@ -22,11 +22,16 @@ class LudoBoardPainter extends CustomPainter {
     _fillBlock(canvas, cell, 9, 0, 6, 6, AppColors.zoneRed);
     _fillBlock(canvas, cell, 9, 9, 6, 6, AppColors.zoneBlue);
 
-    // Home-stretch columns/rows leading into the center.
-    _fillBlock(canvas, cell, 1, 7, 5, 1, AppColors.zoneYellow); // top arm
-    _fillBlock(canvas, cell, 7, 9, 1, 5, AppColors.zoneBlue); // right arm
-    _fillBlock(canvas, cell, 9, 7, 5, 1, AppColors.zoneRed); // bottom arm
-    _fillBlock(canvas, cell, 7, 1, 1, 5, AppColors.zoneGreen); // left arm
+    // Home-stretch columns/rows leading into the center. Each lane is the
+    // full 6 cells from the outer entry point (where a piece turns off the
+    // shared track) through to the cell just before the center — matching
+    // LudoPath's homeStretches exactly (previously these were 1 cell short
+    // at the outer end, leaving a stray uncolored gap right at the turn-in
+    // point).
+    _fillBlock(canvas, cell, 0, 7, 6, 1, AppColors.zoneYellow); // top arm
+    _fillBlock(canvas, cell, 7, 9, 1, 6, AppColors.zoneBlue); // right arm
+    _fillBlock(canvas, cell, 9, 7, 6, 1, AppColors.zoneRed); // bottom arm
+    _fillBlock(canvas, cell, 7, 0, 1, 6, AppColors.zoneGreen); // left arm
 
     // Starting squares.
     _fillBlock(canvas, cell, 6, 1, 1, 1, AppColors.zoneGreen);
@@ -47,12 +52,14 @@ class LudoBoardPainter extends CustomPainter {
     _strokeGrid(canvas, cell, 6, 0, 3, 6, gridPaint); // left arm
     _strokeGrid(canvas, cell, 6, 9, 3, 6, gridPaint); // right arm
 
-    // Small direction arrows on the entry cell of each arm, echoing the
-    // reference board's "which way to walk" hints.
-    _directionArrow(canvas, cell, 1, 6, Alignment.topCenter, AppColors.textDark);
-    _directionArrow(canvas, cell, 13, 8, Alignment.bottomCenter, AppColors.textDark);
-    _directionArrow(canvas, cell, 6, 13, Alignment.centerRight, AppColors.textDark);
-    _directionArrow(canvas, cell, 8, 1, Alignment.centerLeft, AppColors.textDark);
+    // Direction arrows inside each color's home-stretch lane, pointing
+    // toward the center — placed on the exact lane cells from LudoPath's
+    // homeStretches (previously these sat one column/row outside the
+    // colored lane and pointed the wrong way for two of the four arms).
+    _directionArrow(canvas, cell, 2, 7, Alignment.bottomCenter, AppColors.textDark); // yellow: down
+    _directionArrow(canvas, cell, 7, 11, Alignment.centerLeft, AppColors.textDark); // blue: left
+    _directionArrow(canvas, cell, 11, 7, Alignment.topCenter, AppColors.textDark); // red: up
+    _directionArrow(canvas, cell, 7, 2, Alignment.centerRight, AppColors.textDark); // green: right
 
     // Outer border.
     canvas.drawRect(

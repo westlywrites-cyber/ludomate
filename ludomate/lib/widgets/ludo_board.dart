@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../logic/grid_pos.dart';
 import '../logic/ludo_path.dart';
 import '../models/game_state.dart';
 import '../models/piece.dart';
@@ -7,6 +6,7 @@ import '../models/player_color.dart';
 import '../theme/app_colors.dart';
 import 'dice_tray.dart';
 import 'ludo_board_painter.dart';
+import 'piece_marker.dart';
 
 /// Responsive Ludo board that renders the real pieces from [gameState] and
 /// reports taps via [onPieceTap]. Always renders as a perfect square sized
@@ -79,7 +79,14 @@ class LudoBoard extends StatelessWidget {
                     painter: const LudoBoardPainter(),
                   ),
                   for (final piece in gameState.pieces)
-                    _pieceMarker(piece, cell, movable.contains(piece)),
+                    PieceMarker(
+                      key: ValueKey('${piece.color}-${piece.id}'),
+                      piece: piece,
+                      cell: cell,
+                      isMovable: movable.contains(piece),
+                      color: _colorOf(piece.color),
+                      onTap: onPieceTap,
+                    ),
                   Align(
                     alignment: Alignment.center,
                     child: DiceTray(
@@ -95,53 +102,6 @@ class LudoBoard extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-
-  Widget _pieceMarker(Piece piece, double cell, bool isMovable) {
-    final GridPos pos = piece.isInYard
-        ? LudoPath.yardSlot(piece.color, piece.id)
-        : LudoPath.positionFor(piece.color, piece.steps)!;
-    final double size = cell * 0.72;
-    final double left = pos.col * cell + (cell - size) / 2;
-    final double top = pos.row * cell + (cell - size) / 2;
-    final color = _colorOf(piece.color);
-
-    return AnimatedPositioned(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-      left: left,
-      top: top,
-      width: size,
-      height: size,
-      child: GestureDetector(
-        onTap: () => onPieceTap(piece),
-        child: Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: color,
-            border: Border.all(
-              color: isMovable ? Colors.white : Colors.black26,
-              width: isMovable ? size * 0.12 : size * 0.05,
-            ),
-            boxShadow: isMovable
-                ? [
-                    BoxShadow(
-                      color: color.withValues(alpha: 0.7),
-                      blurRadius: size * 0.3,
-                      spreadRadius: size * 0.05,
-                    ),
-                  ]
-                : const [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 2,
-                      offset: Offset(0, 1),
-                    ),
-                  ],
-          ),
-        ),
-      ),
     );
   }
 }
