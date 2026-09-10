@@ -10,16 +10,26 @@ class GameState {
   const GameState({
     required this.pieces,
     required this.currentTurn,
-    this.lastRoll,
-    this.consecutiveSixes = 0,
+    this.diceValues,
+    this.remainingDice = const [],
+    this.consecutiveDoubles = 0,
     this.phase = TurnPhase.awaitingRoll,
     this.winners = const [],
   });
 
   final List<Piece> pieces; // all 16 pieces, 4 per color
   final PlayerColor currentTurn;
-  final int? lastRoll;
-  final int consecutiveSixes;
+
+  /// The two dice as rolled this turn, for display (unchanged until the
+  /// next roll). Null before the first roll of a turn.
+  final List<int>? diceValues;
+
+  /// Which die values are still available to spend this turn. A value is
+  /// removed from here (not from [diceValues]) once used, so the UI can
+  /// still show what was rolled while graying out the used one.
+  final List<int> remainingDice;
+
+  final int consecutiveDoubles;
   final TurnPhase phase;
   final List<PlayerColor> winners; // colors that finished, in order
 
@@ -36,27 +46,31 @@ class GameState {
   List<Piece> piecesOf(PlayerColor color) =>
       pieces.where((p) => p.color == color).toList();
 
-  /// Pieces the current player could legally move with [lastRoll].
+  /// Pieces the current player could legally move with any remaining die.
   List<Piece> get movablePieces {
-    final roll = lastRoll;
-    if (roll == null) return const [];
-    return piecesOf(currentTurn).where((p) => p.canMove(roll)).toList();
+    if (remainingDice.isEmpty) return const [];
+    return piecesOf(currentTurn)
+        .where((p) => remainingDice.any((d) => p.canMove(d)))
+        .toList();
   }
 
   GameState copyWith({
     List<Piece>? pieces,
     PlayerColor? currentTurn,
-    int? lastRoll,
-    bool clearLastRoll = false,
-    int? consecutiveSixes,
+    List<int>? diceValues,
+    bool clearDice = false,
+    List<int>? remainingDice,
+    int? consecutiveDoubles,
     TurnPhase? phase,
     List<PlayerColor>? winners,
   }) {
     return GameState(
       pieces: pieces ?? this.pieces,
       currentTurn: currentTurn ?? this.currentTurn,
-      lastRoll: clearLastRoll ? null : (lastRoll ?? this.lastRoll),
-      consecutiveSixes: consecutiveSixes ?? this.consecutiveSixes,
+      diceValues: clearDice ? null : (diceValues ?? this.diceValues),
+      remainingDice:
+          clearDice ? const [] : (remainingDice ?? this.remainingDice),
+      consecutiveDoubles: consecutiveDoubles ?? this.consecutiveDoubles,
       phase: phase ?? this.phase,
       winners: winners ?? this.winners,
     );

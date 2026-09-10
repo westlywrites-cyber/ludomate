@@ -1,6 +1,6 @@
 import 'dart:math';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../logic/ludo_path.dart';
 import '../models/game_state.dart';
 import '../models/piece.dart';
@@ -17,31 +17,32 @@ class GameNotifier extends StateNotifier<GameState> {
 
   final Random _random;
 
-  /// Rolls the dice for the current player. Auto-passes the turn if
-  /// nothing is legally movable with this roll.
+  /// Rolls both dice for the current player. Auto-passes the turn if
+  /// neither die has a legal move.
   void rollDice() {
     if (state.phase != TurnPhase.awaitingRoll) return;
 
-    final roll = _random.nextInt(6) + 1;
-    final isThirdSix = roll == 6 && state.consecutiveSixes == 2;
+    final d1 = _random.nextInt(6) + 1;
+    final d2 = _random.nextInt(6) + 1;
+    final isDouble = d1 == d2;
+    final isThirdDouble = isDouble && state.consecutiveDoubles == 2;
 
-    if (isThirdSix) {
-      // Three 6s in a row: roll is voided, turn passes immediately.
+    if (isThirdDouble) {
+      // Three doubles in a row: roll is voided, turn passes immediately.
       _advanceTurn();
       return;
     }
 
-    final nextSixCount = roll == 6 ? state.consecutiveSixes + 1 : 0;
     final withRoll = state.copyWith(
-      lastRoll: roll,
-      consecutiveSixes: nextSixCount,
+      diceValues: [d1, d2],
+      remainingDice: [d1, d2],
+      consecutiveDoubles: isDouble ? state.consecutiveDoubles + 1 : 0,
       phase: TurnPhase.awaitingSelection,
     );
 
     if (withRoll.movablePieces.isEmpty) {
-      // Nothing can move with this roll — pass turn (a 6 still ends the
-      // turn here since there was no legal move to make with it).
-      state = withRoll;
+      // Neither die can be used at all — pass the turn. (No bonus roll
+      // here even on a double, since nothing was actually played.)
       _advanceTurn();
       return;
     }
@@ -49,14 +50,14 @@ class GameNotifier extends StateNotifier<GameState> {
     state = withRoll;
   }
 
-  /// Moves the given piece using the current [GameState.lastRoll].
+  /// Moves the given piece using whichever remaining die makes the move
+  /// legal (a piece still in its yard always needs a 6).
   void selectPiece(Piece piece) {
-    final roll = state.lastRoll;
-    if (roll == null) return;
     if (state.phase != TurnPhase.awaitingSelection) return;
     if (!state.movablePieces.contains(piece)) return;
 
-    final moved = piece.isInYard ? piece.exited() : piece.movedBy(roll);
+    final dieUsed = state.remainingDice.firstWhere(piece.canMove);
+    final moved = piece.isInYard ? piece.exited() : piece.movedBy(dieUsed);
 
     var updatedPieces = [
       for (final p in state.pieces) p == piece ? moved : p,
@@ -87,33 +88,51 @@ class GameNotifier extends StateNotifier<GameState> {
       if (allFourFinished) newWinners.add(moved.color);
     }
 
-    state = state.copyWith(
+    final remaining = [...state.remainingDice];
+    remaining.remove(dieUsed); // removes one matching occurrence
+
+    final afterMove = state.copyWith(
       pieces: updatedPieces,
       winners: newWinners,
-      clearLastRoll: true,
-      phase: TurnPhase.awaitingRoll,
+      remainingDice: remaining,
     );
 
-    // Rolling a 6 grants another roll for the same player; otherwise the
-    // turn passes to the next color.
-    if (roll == 6) {
-      // consecutiveSixes was already incremented in rollDice(); just stay
-      // on the same player.
+    final stillPlayable =
+        remaining.isNotEmpty && afterMove.movablePieces.isNotEmpty;
+
+    if (stillPlayable) {
+      // Same player keeps going with whatever die(s) remain.
+      state = afterMove;
       return;
     }
-    _advanceTurn();
+
+    // This turn's dice are spent (or nothing left is movable).
+    final wasDouble = state.diceValues != null &&
+        state.diceValues!.length == 2 &&
+        state.diceValues![0] == state.diceValues![1];
+
+    if (wasDouble) {
+      // Bonus roll for the same player; consecutiveDoubles was already
+      // incremented in rollDice(), so the 3-in-a-row check stays correct.
+      state = afterMove.copyWith(clearDice: true, phase: TurnPhase.awaitingRoll);
+      return;
+    }
+
+    _advanceTurnFrom(afterMove);
   }
 
-  /// Passes play to the next color. Always resets the 6-streak counter,
-  /// since it's only ever called when the current player is changing.
-  void _advanceTurn() {
+  void _advanceTurn() => _advanceTurnFrom(state);
+
+  /// Passes play to the next color, always resetting the double-streak
+  /// counter (only relevant to whoever is currently rolling).
+  void _advanceTurnFrom(GameState base) {
     final order = PlayerColor.values;
-    final currentIndex = order.indexOf(state.currentTurn);
+    final currentIndex = order.indexOf(base.currentTurn);
     final next = order[(currentIndex + 1) % order.length];
-    state = state.copyWith(
+    state = base.copyWith(
       currentTurn: next,
-      clearLastRoll: true,
-      consecutiveSixes: 0,
+      clearDice: true,
+      consecutiveDoubles: 0,
       phase: TurnPhase.awaitingRoll,
     );
   }

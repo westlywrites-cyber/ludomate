@@ -111,33 +111,70 @@ class LudoBoard extends StatelessWidget {
     );
   }
 
+  /// Two dice, side by side — matching the reference gameplay. Each shows
+  /// its rolled value; a die already spent this turn is greyed out.
   Widget _diceTray(double boardSize) {
-    final double traySize = boardSize * 0.18;
-    final roll = gameState.lastRoll;
+    final double traySize = boardSize * 0.28;
+    final values = gameState.diceValues;
+
+    // Figure out, left-to-right, whether each rolled die is still usable
+    // (handles duplicate values like [3,3] correctly, one box at a time).
+    final remainingPool = [...gameState.remainingDice];
+    final activeFlags = <bool>[];
+    if (values != null) {
+      for (final v in values) {
+        if (remainingPool.contains(v)) {
+          activeFlags.add(true);
+          remainingPool.remove(v);
+        } else {
+          activeFlags.add(false);
+        }
+      }
+    }
+
     return Align(
       alignment: Alignment.center,
       child: GestureDetector(
         onTap: onDiceTap,
-        child: Container(
+        child: SizedBox(
           width: traySize,
-          height: traySize,
-          decoration: BoxDecoration(
-            color: AppColors.darkNavy,
-            borderRadius: BorderRadius.circular(traySize * 0.18),
-          ),
-          alignment: Alignment.center,
-          child: roll == null
-              ? Icon(Icons.casino, color: Colors.white, size: traySize * 0.5)
-              : Text(
-                  '$roll',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: traySize * 0.5,
-                  ),
+          height: traySize * 0.55,
+          child: values == null
+              ? _dieFace(traySize * 0.45, null, true)
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _dieFace(traySize * 0.45, values[0], activeFlags[0]),
+                    _dieFace(traySize * 0.45, values[1], activeFlags[1]),
+                  ],
                 ),
         ),
       ),
+    );
+  }
+
+  Widget _dieFace(double size, int? value, bool active) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: active ? AppColors.darkNavy : AppColors.darkNavy.withOpacity(0.35),
+        borderRadius: BorderRadius.circular(size * 0.2),
+        boxShadow: const [
+          BoxShadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 2)),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: value == null
+          ? Icon(Icons.casino, color: Colors.white, size: size * 0.6)
+          : Text(
+              '$value',
+              style: TextStyle(
+                color: active ? Colors.white : Colors.white38,
+                fontWeight: FontWeight.w900,
+                fontSize: size * 0.55,
+              ),
+            ),
     );
   }
 }
