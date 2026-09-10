@@ -83,7 +83,7 @@ class LudoBoard extends StatelessWidget {
                   Align(
                     alignment: Alignment.center,
                     child: DiceTray(
-                      size: boardSize * 0.3,
+                      size: boardSize * 0.22,
                       diceValues: gameState.diceValues,
                       remainingDice: gameState.remainingDice,
                       onTap: onDiceTap,
@@ -115,7 +115,7 @@ class LudoBoard extends StatelessWidget {
       width: size,
       height: size,
       child: GestureDetector(
-        onTap: isMovable ? () => onPieceTap(piece) : null,
+        onTap: () => onPieceTap(piece),
         child: Container(
           decoration: BoxDecoration(
             shape: BoxShape.circle,
