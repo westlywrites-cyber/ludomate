@@ -34,31 +34,41 @@ class BoardScreen extends ConsumerWidget {
     final notifier = ref.read(gameProvider.notifier);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _topBar(context),
-            const SizedBox(height: 8),
-            Expanded(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: AspectRatio(
-                    aspectRatio: 1,
-                    child: LudoBoard(
-                      gameState: state,
-                      onDiceTap: notifier.rollDice,
-                      onPieceTap: (Piece p) => notifier.selectPiece(p),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [AppColors.darkNavy, AppColors.primary],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              _topBar(context),
+              const SizedBox(height: 8),
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: AspectRatio(
+                      aspectRatio: 1,
+                      child: LudoBoard(
+                        gameState: state,
+                        onDiceTap: notifier.rollDice,
+                        onPieceTap: (Piece p) => notifier.selectPiece(p),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            _turnBanner(state),
-            const SizedBox(height: 16),
-          ],
+              const SizedBox(height: 12),
+              _turnBanner(state),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );
@@ -72,13 +82,13 @@ class BoardScreen extends ConsumerWidget {
         children: [
           _roundIconButton(
             icon: Icons.menu,
-            color: AppColors.primary,
+            color: AppColors.secondary,
             onTap: () {},
           ),
           const Text(
             'LudoMate',
             style: TextStyle(
-              color: AppColors.textDark,
+              color: Colors.white,
               fontWeight: FontWeight.w800,
               fontSize: 18,
             ),
@@ -131,16 +141,19 @@ class BoardScreen extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
       width: double.infinity,
       decoration: BoxDecoration(
-        color: AppColors.darkNavy,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(30),
         border: Border.all(color: color, width: 2),
+        boxShadow: const [
+          BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
+        ],
       ),
       alignment: Alignment.center,
       child: Text(
         text,
         textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: color,
           fontWeight: FontWeight.w800,
           fontSize: 16,
         ),
