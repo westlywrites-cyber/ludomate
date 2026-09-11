@@ -78,15 +78,12 @@ class LudoBoard extends StatelessWidget {
                     size: Size(boardSize, boardSize),
                     painter: const LudoBoardPainter(),
                   ),
-                  for (final piece in gameState.pieces)
-                    PieceMarker(
-                      key: ValueKey('${piece.color}-${piece.id}'),
-                      piece: piece,
-                      cell: cell,
-                      isMovable: movable.contains(piece),
-                      color: _colorOf(piece.color),
-                      onTap: onPieceTap,
-                    ),
+                  // The tray sits UNDER the pieces, not on top. Its footprint
+                  // covers the center 3x3 block, which includes the exact
+                  // cells where each color's path pivots from the outer row
+                  // into the turn (e.g. green's (6,6)) — a piece stopping or
+                  // passing through there must stay visible, not vanish
+                  // behind the tray graphic.
                   Align(
                     alignment: Alignment.center,
                     child: DiceTray(
@@ -96,6 +93,15 @@ class LudoBoard extends StatelessWidget {
                       onTap: onDiceTap,
                     ),
                   ),
+                  for (final piece in gameState.pieces)
+                    PieceMarker(
+                      key: ValueKey('${piece.color}-${piece.id}'),
+                      piece: piece,
+                      cell: cell,
+                      isMovable: movable.contains(piece),
+                      color: _colorOf(piece.color),
+                      onTap: onPieceTap,
+                    ),
                 ],
               ),
             ),
