@@ -142,12 +142,20 @@ class LudoBoardPainter extends CustomPainter {
   }
 
   void _drawCenterTriangles(Canvas canvas, double cell) {
-    final double left = 6 * cell;
-    final double top = 6 * cell;
-    final double mid = left + 1.5 * cell;
-    final double midY = top + 1.5 * cell;
-    final double right = 9 * cell;
-    final double bottom = 9 * cell;
+    // Inset half a cell from the 3x3 block's outer edge. The block's 4
+    // corner cells — (6,6), (6,8), (8,6), (8,8) — are legitimate shared-
+    // track cells (each color's path pivots there on its way around the
+    // board), not part of anyone's home. Drawing the triangles all the way
+    // out to those corners painted over those cells, so a piece merely
+    // passing through looked like it had wandered into another color's
+    // finish triangle. Insetting keeps the diamond entirely within the
+    // true center and leaves the pivot cells plain white.
+    final double left = 6.5 * cell;
+    final double top = 6.5 * cell;
+    final double right = 8.5 * cell;
+    final double bottom = 8.5 * cell;
+    final double mid = left + (right - left) / 2;
+    final double midY = top + (bottom - top) / 2;
 
     final Offset topLeft = Offset(left, top);
     final Offset topRight = Offset(right, top);
